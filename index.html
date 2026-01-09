@@ -55,114 +55,68 @@
       <div id="small">Falls der Button nicht funktioniert: wechsle manuell zurück zur Homey-App.</div>
     </div>
   </div>
+<script>
+  const params = new URLSearchParams(window.location.search);
 
-  <script>
-    // ====== CONFIG ======
-    const WEBHOOK_ID = '69304ca8e5fa3a0338adf8bc'; // <-- HIER deine WEBHOOK_ID eintragen
-    // ====================
+  // OAuth2 relevante Parameter
+  const state = params.get('state');
+  const code = params.get('code');
+  const error = params.get('error');
 
-    const params = new URLSearchParams(window.location.search);
+  const titleEl = document.getElementById('title');
+  const messageEl = document.getElementById('message');
+  const actionsEl = document.getElementById('actions');
 
-    // Von Homey an die GitHub-Page mitgegeben
-    const homeyId = params.get('homey');
+  function buildAthomCallbackUrl() {
+    const url = new URL('https://callback.athom.com/oauth2/callback');
 
-    // Von IOmeter an redirectUrl angehängt
-    const installationId = params.get('installation_id');
-    const state = params.get('state');
-    const error = params.get('error');
+    if (state) url.searchParams.set('state', state);
+    if (code) url.searchParams.set('code', code);
+    if (error) url.searchParams.set('error', error);
 
-    const titleEl = document.getElementById('title');
-    const messageEl = document.getElementById('message');
-    const actionsEl = document.getElementById('actions');
-    const homeyBtn = document.getElementById('homeyBtn');
-    const copyBtn = document.getElementById('copyBtn');
+    return url.toString();
+  }
 
-    function buildHomeyWebhookUrl() {
-      const url = new URL(`https://webhooks.athom.com/webhook/${WEBHOOK_ID}`);
-      url.searchParams.set('homey', homeyId);
-      if (installationId) url.searchParams.set('installation_id', installationId);
-      if (state) url.searchParams.set('state', state);
-      if (error) url.searchParams.set('error', error);
-      return url.toString();
+  function showActions() {
+    actionsEl.style.display = 'block';
+  }
+
+  (async () => {
+    // Fehlerfall vom OAuth Provider
+    if (error) {
+      titleEl.textContent = 'Autorisierung fehlgeschlagen';
+      messageEl.innerHTML = `
+        Fehler vom Anbieter:<br>
+        <code>${error}</code>
+      `;
+      messageEl.classList.add('error');
+      showActions();
+      return;
     }
 
-    function showActions() {
-      actionsEl.style.display = 'block';
+    if (!state || !code) {
+      titleEl.textContent = 'Ungültiger OAuth-Callback';
+      messageEl.innerHTML = `
+        Erwartet <code>state</code> und <code>code</code>, aber nicht erhalten.
+      `;
+      messageEl.classList.add('error');
+      showActions();
+      return;
     }
 
-    function goHomey() {
-      // Deep link Versuch (nicht 100% garantiert je nach Plattform)
-      window.location.href = 'homey://';
-    }
+    const callbackUrl = buildAthomCallbackUrl();
 
-    async function callHomeyWebhook() {
-      const webhookUrl = buildHomeyWebhookUrl();
+    titleEl.textContent = 'Autorisierung wird abgeschlossen…';
+    messageEl.innerHTML = `
+      Weiterleitung an Homey OAuth Callback:<br><br>
+      <code>${callbackUrl}</code>
+    `;
 
-      // no-cors: wir können die Response nicht lesen, aber der Request wird rausgeschickt
-      try {
-        await fetch(webhookUrl, { mode: 'no-cors', cache: 'no-store' });
-      } catch (_) {
-        // selbst wenn fetch wirft: wir zeigen trotzdem den Button an
-      } finally {
-        // "gesendet" -> Button zeigen
-        showActions();
-
-        // Optional: nach kurzer Zeit automatisch versuchen zurück zu Homey zu springen
-        setTimeout(() => {
-          // nur sanfter Versuch; User hat Button als Backup
-          goHomey();
-        }, 1200);
-      }
-
-      return webhookUrl;
-    }
-
-    (async () => {
-      // Validierung
-      if (!homeyId) {
-        titleEl.textContent = 'Ungültiger Aufruf';
-        messageEl.textContent = 'Fehlender Parameter: homey';
-        messageEl.classList.add('error');
-        showActions();
-        return;
-      }
-
-      if (error) {
-        titleEl.textContent = 'Verbindung fehlgeschlagen';
-        messageEl.textContent = `Fehler: ${error}`;
-        messageEl.classList.add('error');
-        showActions();
-        return;
-      }
-
-      if (!installationId) {
-        titleEl.textContent = 'Ungültiger Aufruf';
-        messageEl.textContent = 'Keine installation_id erhalten.';
-        messageEl.classList.add('error');
-        showActions();
-        return;
-      }
-
-      titleEl.textContent = 'Verbindung wird abgeschlossen…';
-      messageEl.innerHTML = `Sende Bestätigung an Homey…`;
-
-      const webhookUrl = await callHomeyWebhook();
-
-      titleEl.textContent = 'Verbindung erfolgreich';
-      messageEl.innerHTML = 'IOmeter ist jetzt mit Homey verknüpft.';
-
-      homeyBtn.addEventListener('click', goHomey);
-
-      copyBtn.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(webhookUrl);
-          copyBtn.textContent = 'Kopiert ✓';
-          setTimeout(() => (copyBtn.textContent = 'Link kopieren'), 1200);
-        } catch (e) {
-          alert('Kopieren nicht möglich. URL:\n' + webhookUrl);
-        }
-      });
-    })();
-  </script>
+    // Kurze Verzögerung für Sichtbarkeit / Debug
+    setTimeout(() => {
+      window.location.href = callbackUrl;
+    }, 1200);
+  })();
+</script>
 </body>
 </html>
