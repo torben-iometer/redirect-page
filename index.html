@@ -9,9 +9,20 @@
   <h1>Switch to IOMeter app</h1>
 
   <p>
-    <a href="https://auth.prod.iometer.cloud/oauth/authorize">
+    <a id="iometer-link" href="https://auth.stage.iometer.cloud/oauth/authorize">
       Click here
     </a>
   </p>
+
+  <script>
+    // Hole alle Query-Parameter der aktuellen URL
+    const queryString = window.location.search;
+
+    // Füge sie an den Link an, wenn welche existieren
+    const link = document.getElementById('iometer-link');
+    if (queryString) {
+      link.href += queryString;
+    }
+  </script>
 </body>
 </html>
